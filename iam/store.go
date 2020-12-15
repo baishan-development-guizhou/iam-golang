@@ -27,6 +27,13 @@ func (m *MemoryTokenStore) Load(key string) (tokenInfo *TokenInfo) {
 	return load.(*TokenInfo)
 }
 
+type TokenInfo struct {
+	AccessToken     string
+	RefreshToken    string
+	AccessExpireAt  time.Time
+	RefreshExpireAt time.Time
+}
+
 func buildTokenInfo(token *oauth2.Token) *TokenInfo {
 	expiry := token.Expiry
 	issueAt := expiry.Add(time.Second * time.Duration(-token.Extra("expires_in").(float64)))

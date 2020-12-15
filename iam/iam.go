@@ -9,13 +9,6 @@ import (
 	"time"
 )
 
-type TokenInfo struct {
-	AccessToken     string
-	RefreshToken    string
-	AccessExpireAt  time.Time
-	RefreshExpireAt time.Time
-}
-
 type Client struct {
 	AuthorizationServer string
 	ClientId            string

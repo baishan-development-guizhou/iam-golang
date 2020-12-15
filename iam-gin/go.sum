@@ -151,6 +151,8 @@ github.com/lizhongyue248/iam-golang/iam v0.0.0-20201215114457-6b91b82db47e h1:eB
 github.com/lizhongyue248/iam-golang/iam v0.0.0-20201215114457-6b91b82db47e/go.mod h1:i9igLgGvDeI7THtSekjyAeDxma+LGbc5HL/+ydidM0k=
 github.com/lizhongyue248/iam-golang/iam v0.0.0-20201215115014-d32ce294fc94 h1:ywPpStre/Y7MtBOiWnKx66sb5hZ0FSd7srnmiQLF88M=
 github.com/lizhongyue248/iam-golang/iam v0.0.0-20201215115014-d32ce294fc94/go.mod h1:i9igLgGvDeI7THtSekjyAeDxma+LGbc5HL/+ydidM0k=
+github.com/lizhongyue248/iam-golang/iam v0.0.0-20201215133648-0478c2fa7818 h1:mNz+7hapQCGUHtVelzFj8YC+Sk5LznRX9mbxlMdZQk0=
+github.com/lizhongyue248/iam-golang/iam v0.0.0-20201215133648-0478c2fa7818/go.mod h1:i9igLgGvDeI7THtSekjyAeDxma+LGbc5HL/+ydidM0k=
 github.com/mattn/go-isatty v0.0.12 h1:wuysRhFDzyxgEmMf5xjvJ2M9dZoWAXNNr5LSBS7uHXY=
 github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1OAZbq2CE4Kysco4FUpU=
 github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 h1:ZqeYNhU3OHLH3mGKHDcjJRFFRrJa6eAM5H+CtDdOsPc=
