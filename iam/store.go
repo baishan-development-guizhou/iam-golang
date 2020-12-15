@@ -24,8 +24,7 @@ func (m *MemoryTokenStore) Load(key string) (tokenInfo *TokenInfo) {
 	if !ok {
 		return nil
 	}
-	info := load.(TokenInfo)
-	return &info
+	return load.(*TokenInfo)
 }
 
 func buildTokenInfo(token *oauth2.Token) *TokenInfo {

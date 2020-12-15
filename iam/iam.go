@@ -16,7 +16,7 @@ type TokenInfo struct {
 	RefreshExpireAt time.Time
 }
 
-type Iam struct {
+type Client struct {
 	AuthorizationServer string
 	ClientId            string
 	ClientSecret        string
@@ -25,7 +25,6 @@ type Iam struct {
 	Scopes              []string
 	State               string
 	AutoRefresh         bool
-	RefreshKey          string
 	TokenStore          TokenStore
 	AuthCodeOption      []oauth2.AuthCodeOption
 	context             context.Context
@@ -33,6 +32,9 @@ type Iam struct {
 	OAuth2Config        *oauth2.Config
 	OidcConfig          *oidc.Config
 	Verifier            *oidc.IDTokenVerifier
+	// 只有开启自动刷新的时候才能够使用 dev 模式
+	// 开启后，不论令牌是否过期都会进行自动刷新
+	Dev bool
 }
 
 type ProviderClaim struct {
@@ -47,7 +49,7 @@ type ProviderClaim struct {
 }
 
 // 从令牌中解析出来的用户信息
-type UserInfo struct {
+type UserAuthorization struct {
 	Sub               string `json:"sub"`                // 33333333-3333-3333-3333-333333333333
 	EmailVerified     bool   `json:"email_verified"`     // false
 	Name              string `json:"name"`               // zhongyue.li 李中月
@@ -55,178 +57,187 @@ type UserInfo struct {
 	GivenName         string `json:"given_name"`         // zhongyue.li
 	FamilyName        string `json:"family_name"`        // 李中月
 	Email             string `json:"email"`              // zhongyue.li@baishan.com
-}
-
-// 传递给前端的用户信息
-type UserAuthorization struct {
-	*UserInfo
+	// 传递给前端的
 	AccessToken string `json:"access_token"`
 }
 
-func (iam *Iam) initConfig() error {
-	iam.context = context.Background()
-	provider, err := oidc.NewProvider(iam.context, iam.AuthorizationServer)
+// 初始化配置
+func (client *Client) initConfig() error {
+	client.context = context.Background()
+	provider, err := oidc.NewProvider(client.context, client.AuthorizationServer)
 	if err != nil {
 		return err
 	}
 	if provider == nil {
 		return fmt.Errorf("IAM 初始化错误")
 	}
-	iam.Provider = provider
-	iam.OAuth2Config = &oauth2.Config{
-		ClientID:     iam.ClientId,
-		ClientSecret: iam.ClientSecret,
-		RedirectURL:  iam.RedirectUrl,
+	client.Provider = provider
+	client.OAuth2Config = &oauth2.Config{
+		ClientID:     client.ClientId,
+		ClientSecret: client.ClientSecret,
+		RedirectURL:  client.RedirectUrl,
 		Endpoint:     provider.Endpoint(),
-		Scopes:       iam.Scopes,
+		Scopes:       client.Scopes,
 	}
-	iam.OidcConfig = &oidc.Config{
-		ClientID: iam.ClientId,
+	client.OidcConfig = &oidc.Config{
+		ClientID: client.ClientId,
 	}
-	iam.Verifier = provider.Verifier(iam.OidcConfig)
+	client.Verifier = provider.Verifier(client.OidcConfig)
 	return nil
 }
 
-func (iam *Iam) checkParam() error {
-	if iam.ClientId == "" {
+func (client *Client) checkParam() error {
+	if client.ClientId == "" {
 		return errors.New("Client Id 必填项. ")
 	}
-	if iam.ClientSecret == "" {
+	if client.ClientSecret == "" {
 		return errors.New("Client Secret 必填项. ")
 	}
-	if iam.AuthorizationServer == "" {
+	if client.AuthorizationServer == "" {
 		return errors.New("Authorization Server 必填项. ")
 	}
-	if iam.RedirectUrl == "" {
+	if client.RedirectUrl == "" {
 		return errors.New("Redirect Url 必填项. ")
 	}
-	if iam.RedirectLogoutUrl == "" {
+	if client.RedirectLogoutUrl == "" {
 		return errors.New("Redirect Logout Url 必填项. ")
 	}
-	if !contains(iam.Scopes, oidc.ScopeOpenID) {
-		iam.Scopes = append(iam.Scopes, oidc.ScopeOpenID)
+	if !contains(client.Scopes, oidc.ScopeOpenID) {
+		client.Scopes = append(client.Scopes, oidc.ScopeOpenID)
 	}
-	if iam.State == "" {
-		iam.State = randomBase64String(24)
+	if client.State == "" {
+		client.State = randomBase64String(24)
 	}
-	if iam.AutoRefresh {
+	if client.AutoRefresh {
 		// 默认值
-		if iam.TokenStore == nil {
-			iam.TokenStore = &MemoryTokenStore{}
+		if client.TokenStore == nil {
+			client.TokenStore = &MemoryTokenStore{}
 		}
-		if iam.RefreshKey == "" {
-			iam.RefreshKey = "Set-Cookie"
-		}
+	}
+	if client.AuthCodeOption == nil {
+		client.AuthCodeOption = []oauth2.AuthCodeOption{}
 	}
 	return nil
 }
 
-func (iam Iam) ProviderClaim() (claim *ProviderClaim, err error) {
-	err = iam.Provider.Claims(&claim)
+func (client *Client) Init() (err error) {
+	if err = client.checkParam(); err != nil {
+		return err
+	}
+	if err = client.initConfig(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (client *Client) ProviderClaim() (claim *ProviderClaim, err error) {
+	err = client.Provider.Claims(&claim)
 	if err != nil {
 		return nil, err
 	}
 	return claim, nil
 }
 
-func (iam *Iam) AuthorizationServerUrl() string {
-	return iam.OAuth2Config.AuthCodeURL(iam.State)
+func (client *Client) AuthorizationServerUrl() string {
+	return client.OAuth2Config.AuthCodeURL(client.State, client.AuthCodeOption...)
 }
 
-func (iam *Iam) LogoutUrl() (*string, error) {
-	claim, err := iam.ProviderClaim()
+func (client *Client) LogoutUrl() (*string, error) {
+	claim, err := client.ProviderClaim()
 	if err != nil {
 		return nil, err
 	}
-	claim.EndSessionEndpoint = claim.EndSessionEndpoint + "?redirect_uri=" + iam.RedirectLogoutUrl
+	claim.EndSessionEndpoint = claim.EndSessionEndpoint + "?redirect_uri=" + client.RedirectLogoutUrl
 	return &claim.EndSessionEndpoint, nil
 }
 
 // 授权码模式用户登录
 // code 授权码
-func (iam *Iam) Authorization(state, code string) (*UserAuthorization, error) {
-	if iam.State != state {
+func (client *Client) Authorization(state, code string) (*UserAuthorization, error) {
+	if client.State != state {
 		return nil, errors.New("State 不匹配. ")
 	}
-	token, err := iam.OAuth2Config.Exchange(iam.context, code)
+	token, err := client.OAuth2Config.Exchange(client.context, code, client.AuthCodeOption...)
 	if err != nil {
 		return nil, err
 	}
-	info, err := iam.UserInfo(token.AccessToken)
+	info, err := client.UserInfo(token.AccessToken)
 	if err != nil {
 		return nil, errors.New("解析令牌信息失败. ")
 	}
-	if iam.AutoRefresh {
-		iam.TokenStore.Store(info.Sub, buildTokenInfo(token))
+	if client.AutoRefresh {
+		client.TokenStore.Store(info.Sub, buildTokenInfo(token))
 	}
-	return &UserAuthorization{
-		UserInfo:    info,
-		AccessToken: token.AccessToken,
-	}, err
-}
-
-// 验证并简单解析 token
-func (iam *Iam) VerifyToken(token string) (idToken *oidc.IDToken, err error) {
-	idToken, err = iam.Verifier.Verify(iam.context, token)
-	if err != nil {
-		if iam.AutoRefresh {
-			return iam.checkExpiryAndRefresh(idToken, err)
-		}
-		return nil, err
-	}
-	return idToken, nil
+	return info, err
 }
 
 // 验证并解析 token 中的用户信息
-func (iam Iam) UserInfo(token string) (user *UserInfo, err error) {
-	idToken, err := iam.VerifyToken(token)
+func (client *Client) UserInfo(token string) (user *UserAuthorization, err error) {
+	var (
+		idToken  *oidc.IDToken
+		newToken *oauth2.Token
+	)
+	idToken, err = client.Verifier.Verify(client.context, token)
+	// 尝试刷新
+	idToken, newToken, err = client.checkExpiryAndRefresh(idToken, err)
 	if err != nil {
 		return nil, err
 	}
 	if err = idToken.Claims(&user); err != nil {
 		return nil, err
 	}
-	return user, err
+	if newToken != nil {
+		user.AccessToken = newToken.AccessToken
+	} else {
+		user.AccessToken = token
+	}
+	return user, nil
 }
 
 // 检查是否是因为过期造成的令牌失效，如果是且刷新令牌在有效期内，就自动刷新
-func (iam Iam) checkExpiryAndRefresh(token *oidc.IDToken, err error) (*oidc.IDToken, error) {
+func (client *Client) checkExpiryAndRefresh(token *oidc.IDToken, err error) (*oidc.IDToken, *oauth2.Token, error) {
+	// 验证并没有出错，不刷新
+	if !client.Dev && err == nil {
+		return token, nil, err
+	}
+	// 并没有开启自动刷新，不处理
+	if !client.AutoRefresh {
+		return nil, nil, err
+	}
 	now := time.Now()
 	// 无法解析令牌，此时令牌不合法
 	if token == nil {
-		return nil, err
+		return nil, nil, err
 	}
+	// 不是 Dev 模式下再判断
 	// 如果失败的原因并不是令牌过期就不处理
-	if token.Expiry.After(now) {
-		return token, err
+	if !client.Dev && token.Expiry.After(now) {
+		return token, nil, err
 	}
 	// 从存储中加载出登录时的令牌
-	tokenInfo := iam.TokenStore.Load(token.Subject)
+	tokenInfo := client.TokenStore.Load(token.Subject)
 	if tokenInfo == nil {
-		return token, err
+		return token, nil, err
 	}
 	// 如果刷新令牌也已经过期了就不处理
 	if tokenInfo.RefreshExpireAt.Before(now) {
-		return token, err
+		return token, nil, err
 	}
 	// 刷新令牌
-	newToken, err := iam.RefreshToken(tokenInfo.RefreshToken)
+	newToken, err := client.RefreshToken(tokenInfo.RefreshToken)
 	if err != nil {
-		return token, err
+		return token, nil, err
 	}
 	// 构建并存储新的令牌信息
-	iam.TokenStore.Store(token.Subject, buildTokenInfo(newToken))
-	// 再次验证一下
-	idToken, err := iam.Verifier.Verify(iam.context, newToken.AccessToken)
-	if err != nil {
-		return token, err
-	}
-	return idToken, nil
+	client.TokenStore.Store(token.Subject, buildTokenInfo(newToken))
+	// 转化为 id token
+	verify, err := client.Verifier.Verify(client.context, newToken.AccessToken)
+	return verify, newToken, err
 }
 
 // 刷新 token
-func (iam *Iam) RefreshToken(refreshToken string) (*oauth2.Token, error) {
-	source := iam.OAuth2Config.TokenSource(iam.context, &oauth2.Token{RefreshToken: refreshToken})
+func (client *Client) RefreshToken(refreshToken string) (*oauth2.Token, error) {
+	source := client.OAuth2Config.TokenSource(client.context, &oauth2.Token{RefreshToken: refreshToken})
 	token, err := source.Token()
 	if err != nil {
 		return nil, err
