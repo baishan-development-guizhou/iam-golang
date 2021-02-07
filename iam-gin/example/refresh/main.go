@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/baishan-development-guizhou/iam-golang/iam"
 	"github.com/gin-gonic/gin"
-	"github.com/lizhongyue248/iam-golang/iam"
 	"iam-golang/iam-gin/example"
 	"net/http"
 )

@@ -2,8 +2,8 @@ package example
 
 import (
 	"fmt"
+	"github.com/baishan-development-guizhou/iam-golang/iam"
 	"github.com/gin-gonic/gin"
-	"github.com/lizhongyue248/iam-golang/iam"
 	iamGin "iam-golang/iam-gin"
 )
 

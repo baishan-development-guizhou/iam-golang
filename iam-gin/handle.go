@@ -1,8 +1,8 @@
 package iam_gin
 
 import (
+	"github.com/baishan-development-guizhou/iam-golang/iam"
 	"github.com/gin-gonic/gin"
-	"github.com/lizhongyue248/iam-golang/iam"
 	"net/http"
 )
 
