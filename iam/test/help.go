@@ -2,8 +2,8 @@ package iam
 
 import (
 	"fmt"
+	"github.com/baishan-development-guizhou/iam-golang/iam"
 	"github.com/coreos/go-oidc"
-	"github.com/lizhongyue248/iam-golang/iam"
 	"golang.org/x/oauth2"
 	"log"
 	"os/exec"

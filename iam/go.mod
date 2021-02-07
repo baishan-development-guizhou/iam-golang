@@ -1,4 +1,4 @@
-module github.com/lizhongyue248/iam-golang/iam
+module github.com/baishan-development-guizhou/iam-golang/iam
 
 go 1.15
 

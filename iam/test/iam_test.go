@@ -1,8 +1,8 @@
 package iam
 
 import (
+	"github.com/baishan-development-guizhou/iam-golang/iam"
 	"github.com/coreos/go-oidc"
-	"github.com/lizhongyue248/iam-golang/iam"
 	"testing"
 )
 

@@ -25,12 +25,12 @@ WARNING: 注意：此项目只适用于前后端分离项目。
 
 .核心模块
 ----
-go get -u github.com/lizhongyue248/iam-golang/iam
+go get -u github.com/baishan-development-guizhou/iam-golang/iam
 ----
 
 .Gin 模块
 ----
-go get -u github.com/lizhongyue248/iam-golang/iam-gin
+go get -u github.com/baishan-development-guizhou/iam-golang/iam-gin
 ----
 
 == 使用
