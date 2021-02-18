@@ -10,10 +10,21 @@ type TokenStore interface {
 	Store(key string, tokenInfo *TokenInfo)
 	Remove(key string)
 	Load(key string) (tokenInfo *TokenInfo)
+	AutoClear()
 }
 
 type MemoryTokenStore struct {
 	store sync.Map
+}
+
+func (m *MemoryTokenStore) AutoClear() {
+	m.store.Range(func(key, value interface{}) bool {
+		info := value.(*TokenInfo)
+		if info.RefreshExpireAt.Before(time.Now()) {
+			m.store.Delete(key)
+		}
+		return true
+	})
 }
 
 func (m *MemoryTokenStore) Store(key string, tokenInfo *TokenInfo) {

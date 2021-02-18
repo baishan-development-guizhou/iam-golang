@@ -61,6 +61,13 @@ func (client *Client) checkParam() error {
 		if client.TokenStore == nil {
 			client.TokenStore = &MemoryTokenStore{}
 		}
+		go func() {
+			timeTickerChan := time.Tick(time.Hour * 24)
+			for {
+				client.TokenStore.AutoClear()
+				<-timeTickerChan
+			}
+		}()
 	}
 	if client.AuthCodeOption == nil {
 		client.AuthCodeOption = []oauth2.AuthCodeOption{}
