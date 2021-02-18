@@ -21,16 +21,11 @@ WARNING: 注意：此项目只适用于前后端分离项目。
 本项目目前有两个模块：
 
 - `iam` 核心模块，封装了核心的业务逻辑。
-- `iam-gin` 对 gin 框架的适配，包括 `handler` 与 `middleware`。
+- `iam-gin` 对 gin 框架的适配示例，包括 `handler` 与 `middleware`。
 
 .核心模块
 ----
 go get -u github.com/baishan-development-guizhou/iam-golang/iam
-----
-
-.Gin 模块
-----
-go get -u github.com/baishan-development-guizhou/iam-golang/iam-gin
 ----
 
 == 使用
@@ -114,7 +109,7 @@ include::iam/store.go[lines=1..28]
 
 === iam-gin 模块
 
-使用 `Client` 构建 `IamHandler` 即可
+使用示例，建议参照进行自定义。
 
 [source,go, indent=0]
 ----
