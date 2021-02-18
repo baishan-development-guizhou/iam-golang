@@ -9,51 +9,6 @@ import (
 	"time"
 )
 
-type Client struct {
-	AuthorizationServer string
-	ClientId            string
-	ClientSecret        string
-	RedirectUrl         string
-	RedirectLogoutUrl   string
-	Scopes              []string
-	State               string
-	AutoRefresh         bool
-	TokenStore          TokenStore
-	AuthCodeOption      []oauth2.AuthCodeOption
-	context             context.Context
-	Provider            *oidc.Provider
-	OAuth2Config        *oauth2.Config
-	OidcConfig          *oidc.Config
-	Verifier            *oidc.IDTokenVerifier
-	// 只有开启自动刷新的时候才能够使用 dev 模式
-	// 开启后，不论令牌是否过期都会进行自动刷新
-	Dev bool
-}
-
-type ProviderClaim struct {
-	Issuer                     string `json:"issuer"`
-	AuthorizationEndpoint      string `json:"authorization_endpoint"`
-	TokenEndpoint              string `json:"token_endpoint"`
-	TokenIntrospectionEndpoint string `json:"token_introspection_endpoint"`
-	UserinfoEndpoint           string `json:"userinfo_endpoint"`
-	EndSessionEndpoint         string `json:"end_session_endpoint"`
-	CheckSessionIframe         string `json:"check_session_iframe"`
-	IntrospectionEndpoint      string `json:"introspection_endpoint"`
-}
-
-// 从令牌中解析出来的用户信息
-type UserAuthorization struct {
-	Sub               string `json:"sub"`                // 33333333-3333-3333-3333-333333333333
-	EmailVerified     bool   `json:"email_verified"`     // false
-	Name              string `json:"name"`               // zhongyue.li 李中月
-	PreferredUsername string `json:"preferred_username"` // zhongyue.li
-	GivenName         string `json:"given_name"`         // zhongyue.li
-	FamilyName        string `json:"family_name"`        // 李中月
-	Email             string `json:"email"`              // zhongyue.li@baishan.com
-	// 传递给前端的
-	AccessToken string `json:"access_token"`
-}
-
 // 初始化配置
 func (client *Client) initConfig() error {
 	client.context = context.Background()
@@ -159,7 +114,7 @@ func (client *Client) Authorization(state, code string) (*UserAuthorization, err
 		return nil, errors.New("解析令牌信息失败. ")
 	}
 	if client.AutoRefresh {
-		client.TokenStore.Store(info.Sub, buildTokenInfo(token))
+		client.TokenStore.Store(buildTokenKey(info), buildTokenInfo(token))
 	}
 	return info, err
 }
@@ -171,8 +126,7 @@ func (client *Client) UserInfo(token string) (user *UserAuthorization, err error
 		newToken *oauth2.Token
 	)
 	idToken, err = client.Verifier.Verify(client.context, token)
-	// 尝试刷新
-	idToken, newToken, err = client.checkExpiryAndRefresh(idToken, err)
+	idToken, newToken, err = client.checkExpiryAndRefresh(idToken, token, err)
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +135,8 @@ func (client *Client) UserInfo(token string) (user *UserAuthorization, err error
 	}
 	if newToken != nil {
 		user.AccessToken = newToken.AccessToken
+		// 构建并存储新的令牌信息
+		client.TokenStore.Store(buildTokenKey(user), buildTokenInfo(newToken))
 	} else {
 		user.AccessToken = token
 	}
@@ -188,10 +144,10 @@ func (client *Client) UserInfo(token string) (user *UserAuthorization, err error
 }
 
 // 检查是否是因为过期造成的令牌失效，如果是且刷新令牌在有效期内，就自动刷新
-func (client *Client) checkExpiryAndRefresh(token *oidc.IDToken, err error) (*oidc.IDToken, *oauth2.Token, error) {
+func (client *Client) checkExpiryAndRefresh(idToken *oidc.IDToken, token string, err error) (*oidc.IDToken, *oauth2.Token, error) {
 	// 验证并没有出错，不刷新
 	if !client.Dev && err == nil {
-		return token, nil, err
+		return idToken, nil, err
 	}
 	// 并没有开启自动刷新，不处理
 	if !client.AutoRefresh {
@@ -199,31 +155,29 @@ func (client *Client) checkExpiryAndRefresh(token *oidc.IDToken, err error) (*oi
 	}
 	now := time.Now()
 	// 无法解析令牌，此时令牌不合法
-	if token == nil {
+	if idToken == nil {
 		return nil, nil, err
 	}
 	// 不是 Dev 模式下再判断
 	// 如果失败的原因并不是令牌过期就不处理
-	if !client.Dev && token.Expiry.After(now) {
-		return token, nil, err
+	if !client.Dev && idToken.Expiry.After(now) {
+		return idToken, nil, err
 	}
 	// 从存储中加载出登录时的令牌
-	tokenInfo := client.TokenStore.Load(token.Subject)
-	if tokenInfo == nil {
-		return token, nil, err
+	tokenInfo := client.TokenStore.Load(idToken.Subject)
+	if tokenInfo == nil || token != tokenInfo.AccessToken {
+		return idToken, nil, err
 	}
 	// 如果刷新令牌也已经过期了就不处理
 	if tokenInfo.RefreshExpireAt.Before(now) {
-		return token, nil, err
+		return idToken, nil, err
 	}
 	// 刷新令牌
 	newToken, err := client.RefreshToken(tokenInfo.RefreshToken)
 	if err != nil {
-		return token, nil, err
+		return idToken, nil, err
 	}
-	// 构建并存储新的令牌信息
-	client.TokenStore.Store(token.Subject, buildTokenInfo(newToken))
-	// 转化为 id token
+	// 转化为 id idToken
 	verify, err := client.Verifier.Verify(client.context, newToken.AccessToken)
 	return verify, newToken, err
 }

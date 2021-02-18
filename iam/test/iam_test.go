@@ -100,15 +100,8 @@ func TestClient_InitCheckParam(t *testing.T) {
 func TestClient_Init(t *testing.T) {
 	tests := []test{
 		{
-			name: "Init success.",
-			fields: fields{
-				ClientId:            testClientId,
-				ClientSecret:        testClientSecret,
-				AuthorizationServer: testAuthorizationServerUrl,
-				RedirectUrl:         "http://127.0.0.1:8081",
-				RedirectLogoutUrl:   "http://127.0.0.1:8081",
-				Scopes:              []string{"profile"},
-			},
+			name:    "Init success.",
+			fields:  client,
 			wantErr: false,
 			callback: func(client *iam.Client) bool {
 				return len(client.State) == 24
@@ -122,15 +115,8 @@ func TestClient_Init(t *testing.T) {
 func TestClient_AuthorizationServerUrl(t *testing.T) {
 	tests := []test{
 		{
-			name: "Authorization Server Url.",
-			fields: fields{
-				ClientId:            testClientId,
-				ClientSecret:        testClientSecret,
-				AuthorizationServer: testAuthorizationServerUrl,
-				RedirectUrl:         "http://127.0.0.1:8081",
-				RedirectLogoutUrl:   "http://127.0.0.1:8081",
-				Scopes:              []string{"profile"},
-			},
+			name:    "Authorization Server Url.",
+			fields:  client,
 			wantErr: false,
 			init:    testInit,
 			skip:    skip,
@@ -142,15 +128,8 @@ func TestClient_AuthorizationServerUrl(t *testing.T) {
 func TestClient_ProviderClaim(t *testing.T) {
 	tests := []test{
 		{
-			name: "Provider Claim.",
-			fields: fields{
-				ClientId:            testClientId,
-				ClientSecret:        testClientSecret,
-				AuthorizationServer: testAuthorizationServerUrl,
-				RedirectUrl:         "http://127.0.0.1:8081",
-				RedirectLogoutUrl:   "http://127.0.0.1:8081",
-				Scopes:              []string{"profile"},
-			},
+			name:    "Provider Claim.",
+			fields:  client,
 			wantErr: false,
 			init:    testInit,
 			skip:    skip,
@@ -162,15 +141,8 @@ func TestClient_ProviderClaim(t *testing.T) {
 func TestClient_LogoutUrl(t *testing.T) {
 	tests := []test{
 		{
-			name: "Logout Server Url.",
-			fields: fields{
-				ClientId:            testClientId,
-				ClientSecret:        testClientSecret,
-				AuthorizationServer: testAuthorizationServerUrl,
-				RedirectUrl:         "http://127.0.0.1:8081",
-				RedirectLogoutUrl:   "http://127.0.0.1:8081",
-				Scopes:              []string{"profile"},
-			},
+			name:    "Logout Server Url.",
+			fields:  client,
 			wantErr: false,
 			init:    testInit,
 			skip:    skip,
@@ -182,16 +154,8 @@ func TestClient_LogoutUrl(t *testing.T) {
 func TestClient_Authorization(t *testing.T) {
 	tests := []test{
 		{
-			name: "Authorization User.",
-			fields: fields{
-				ClientId:            testClientId,
-				ClientSecret:        testClientSecret,
-				AuthorizationServer: testAuthorizationServerUrl,
-				RedirectUrl:         "http://127.0.0.1:8081",
-				RedirectLogoutUrl:   "http://127.0.0.1:8081",
-				Scopes:              []string{"profile"},
-				State:               "test",
-			},
+			name:   "Authorization User.",
+			fields: client,
 			authorization: authorization{
 				code:  "7288b5f5-f47c-48b1-8b81-443247b0c570.08afe907-428f-4550-8d92-edc0d457eafc.f5b9d5c5-6fb8-447a-8133-7bd2d55742b4",
 				state: "test",
@@ -204,19 +168,35 @@ func TestClient_Authorization(t *testing.T) {
 	testAllAuthorization(tests, t)
 }
 
+func TestClient_AuthorizationTwice(t *testing.T) {
+	tests := []test{
+		{
+			name: "Authorization User First.",
+			authorization: authorization{
+				code:  "af8eaec8-d012-4a6e-aeb3-80282aede616.dcf5ed5e-49fd-40db-89b4-7a8c312ab84b.468aa31d-2217-4196-b9d2-afd82b49afd8",
+				state: "test",
+			},
+			wantErr: false,
+			skip:    skip,
+		},
+		{
+			name: "Authorization User Second.",
+			authorization: authorization{
+				code:  "aca95c78-17cb-483f-8136-9ecdff66f4c5.dcf5ed5e-49fd-40db-89b4-7a8c312ab84b.468aa31d-2217-4196-b9d2-afd82b49afd8",
+				state: "test",
+			},
+			wantErr: false,
+			skip:    skip,
+		},
+	}
+	testAllAuthorizationByClient(refreshClient, tests, t)
+}
+
 func TestClient_UserInfo(t *testing.T) {
 	tests := []test{
 		{
-			name: "Token To User Info",
-			fields: fields{
-				ClientId:            testClientId,
-				ClientSecret:        testClientSecret,
-				AuthorizationServer: testAuthorizationServerUrl,
-				RedirectUrl:         "http://127.0.0.1:8081",
-				RedirectLogoutUrl:   "http://127.0.0.1:8081",
-				Scopes:              []string{"profile"},
-				State:               "test",
-			},
+			name:   "Token To User Info",
+			fields: client,
 			authorization: authorization{
 				accessToken: "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJpWkxpcjZGd01sZzJlSnNWbkZnMUJqbUw4X3JiQmR0VEZBSDAwMTlOeDdJIn0.eyJleHAiOjE2MDg2NDMwMTYsImlhdCI6MTYwODAzODIxNiwiYXV0aF90aW1lIjoxNjA4MDE1ODI2LCJqdGkiOiI2YWUwZGQ5ZS05NmUxLTQ4NmEtYTg3Ny02N2Q1OWZlNmVlMTYiLCJpc3MiOiJodHRwczovL2FjY291bnQuYnM1OGkuYmFpc2hhbmNkbnguY29tL2F1dGgvcmVhbG1zL21hc3RlciIsImF1ZCI6WyJpYW0tdGVzdCIsImFjY291bnQiXSwic3ViIjoiMzMzMTQ3NTQtM2Y4YS00N2I1LWIyZDItZjlhZTAyMzk2NmRkIiwidHlwIjoiQmVhcmVyIiwiYXpwIjoiaWFtLXRlc3QiLCJzZXNzaW9uX3N0YXRlIjoiMDhhZmU5MDctNDI4Zi00NTUwLThkOTItZWRjMGQ0NTdlYWZjIiwiYWNyIjoiMCIsInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6Im9wZW5pZCBlbWFpbCBwcm9maWxlIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJuYW1lIjoiemhvbmd5dWUubGkg5p2O5Lit5pyIIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiemhvbmd5dWUubGkiLCJnaXZlbl9uYW1lIjoiemhvbmd5dWUubGkiLCJmYW1pbHlfbmFtZSI6IuadjuS4reaciCIsImVtYWlsIjoiemhvbmd5dWUubGlAYmFpc2hhbi5jb20ifQ.PHGKfkN-UZEeuEWKhk9febqDq6VoNjDDdRdpQXGcH41rtU8E_r2DhcM58RIdlYHGA1RV8LmBFLtrc0EQ9MOHDd3PvT70HeqnXZidC6b_RXTIdhcwlb6odZdW_3LKqD0N2kIfhcIw2FQTsGCxe7DFddjRCh-KQ1qywn_go2auB0UdohJvqNu0G-wgXoveDb8H1FyUKYgpopK-mrSs3v-RdouwhLR2AuIjdJrOcZhU4To2iBDSL0qPFpMdZVadWI6ws7pcLo1XtPCJYB0MpW6LBWoDCBfgIFKeDBygFcWYesL5RkBJ20uvEOEnP1UIN1FbVJZzPcemzAVllqt6_VnCBw",
 			},

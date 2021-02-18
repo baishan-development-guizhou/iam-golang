@@ -15,12 +15,7 @@ import (
 const placeholder = "超级无敌大帅哥"
 
 // 本地测试时可以改为 false
-const skip = true
-
-// 客户端内容可以找相关人员获取
-const testClientId = ""
-const testClientSecret = ""
-const testAuthorizationServerUrl = ""
+const skip = false
 
 type fields struct {
 	AuthorizationServer string
@@ -38,6 +33,29 @@ type fields struct {
 	OidcConfig          *oidc.Config
 	Verifier            *oidc.IDTokenVerifier
 	Dev                 bool
+}
+
+// 客户端内容可以找相关人员获取
+var client = fields{
+	ClientId:            "",
+	ClientSecret:        "",
+	AuthorizationServer: "",
+	RedirectUrl:         "http://localhost:8081/Login",
+	RedirectLogoutUrl:   "http://localhost:8081/Logout",
+	Scopes:              []string{"profile"},
+	State:               "test",
+}
+
+var refreshClient = fields{
+	ClientId:            "",
+	ClientSecret:        "",
+	AuthorizationServer: "",
+	RedirectUrl:         "http://localhost:8081/Login",
+	RedirectLogoutUrl:   "http://localhost:8081/Logout",
+	Scopes:              []string{"profile"},
+	State:               "test",
+	AutoRefresh:         true,
+	Dev:                 true,
 }
 
 type authorization struct {
@@ -90,13 +108,13 @@ func testInit(client *iam.Client) bool {
 }
 
 func testAllInit(tests []test, t *testing.T) {
-	testALl(tests, t, func(client *iam.Client, one test) bool {
+	testAll(tests, t, func(client *iam.Client, one test) bool {
 		return client.Init() != nil == one.wantErr
 	})
 }
 
 func testAllAuthorizationServerUrl(tests []test, t *testing.T) {
-	testALl(tests, t, func(client *iam.Client, one test) bool {
+	testAll(tests, t, func(client *iam.Client, one test) bool {
 		url := client.AuthorizationServerUrl()
 		log.Println(url)
 		return (url != "" && strings.Contains(url, "state") &&
@@ -107,7 +125,7 @@ func testAllAuthorizationServerUrl(tests []test, t *testing.T) {
 }
 
 func testAllProviderClaim(tests []test, t *testing.T) {
-	testALl(tests, t, func(client *iam.Client, one test) bool {
+	testAll(tests, t, func(client *iam.Client, one test) bool {
 		_, err := client.ProviderClaim()
 		if err != nil {
 			return true == one.wantErr
@@ -117,7 +135,7 @@ func testAllProviderClaim(tests []test, t *testing.T) {
 }
 
 func testAllLogoutUrl(tests []test, t *testing.T) {
-	testALl(tests, t, func(client *iam.Client, one test) bool {
+	testAll(tests, t, func(client *iam.Client, one test) bool {
 		url, err := client.LogoutUrl()
 		if err != nil {
 			return true == one.wantErr
@@ -127,7 +145,7 @@ func testAllLogoutUrl(tests []test, t *testing.T) {
 }
 
 func testAllAuthorization(tests []test, t *testing.T) {
-	testALl(tests, t, func(client *iam.Client, one test) bool {
+	testAll(tests, t, func(client *iam.Client, one test) bool {
 		code := one.authorization.code
 		state := one.authorization.state
 		if code == "" || state == "" {
@@ -162,7 +180,7 @@ func testAllAuthorization(tests []test, t *testing.T) {
 }
 
 func testAllUserInfo(tests []test, t *testing.T) {
-	testALl(tests, t, func(client *iam.Client, one test) bool {
+	testAll(tests, t, func(client *iam.Client, one test) bool {
 		token := one.authorization.accessToken
 		if token == "" {
 			return false
@@ -177,22 +195,54 @@ func testAllUserInfo(tests []test, t *testing.T) {
 	})
 }
 
-func testALl(tests []test, t *testing.T, doing func(client *iam.Client, one test) bool) {
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.skip {
-				t.Skip()
-			}
-			client := testToClient(tt)
-			if tt.init != nil && !tt.init(client) {
-				t.Errorf("Init is fail！")
-			}
-			if !doing(client, tt) {
-				t.Errorf("Doing fail!")
-			}
-			if tt.callback != nil && !tt.callback(client) {
-				t.Errorf("Callback is fail！")
-			}
-		})
+func testAllAuthorizationByClient(c fields, tests []test, t *testing.T) {
+	client := testToClient(test{fields: c})
+	if client.Init() != nil {
+		t.Errorf("客户端初始化失败")
+		return
 	}
+	testAllByClient(client, tests, t, func(client *iam.Client, one test) bool {
+		code := one.authorization.code
+		state := one.authorization.state
+		if code == "" || state == "" {
+			log.Println("请去授权服务器中登陆后使用 code 和 state 进行测试")
+			return false
+		}
+		authorization, err := client.Authorization(state, code)
+		if err != nil {
+			return one.wantErr
+		}
+		log.Println(authorization.AccessToken)
+		return !one.wantErr
+	})
+}
+
+func testAllByClient(client *iam.Client, tests []test, t *testing.T, doing func(client *iam.Client, one test) bool) {
+	for _, tt := range tests {
+		testRun(tt, t, client, doing)
+	}
+}
+
+func testAll(tests []test, t *testing.T, doing func(client *iam.Client, one test) bool) {
+	for _, tt := range tests {
+		client := testToClient(tt)
+		if tt.init != nil && !tt.init(client) {
+			t.Errorf("Init is fail！")
+		}
+		testRun(tt, t, client, doing)
+	}
+}
+
+func testRun(tt test, t *testing.T, client *iam.Client, doing func(client *iam.Client, one test) bool) {
+	t.Run(tt.name, func(t *testing.T) {
+		if tt.skip {
+			t.Skip()
+		}
+		if !doing(client, tt) {
+			t.Errorf("Doing fail!")
+		}
+		if tt.callback != nil && !tt.callback(client) {
+			t.Errorf("Callback is fail！")
+		}
+	})
 }

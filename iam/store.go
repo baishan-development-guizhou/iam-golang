@@ -8,6 +8,7 @@ import (
 
 type TokenStore interface {
 	Store(key string, tokenInfo *TokenInfo)
+	Remove(key string)
 	Load(key string) (tokenInfo *TokenInfo)
 }
 
@@ -20,11 +21,15 @@ func (m *MemoryTokenStore) Store(key string, tokenInfo *TokenInfo) {
 }
 
 func (m *MemoryTokenStore) Load(key string) (tokenInfo *TokenInfo) {
-	load, ok := m.store.Load(key)
+	load, ok := m.store.LoadAndDelete(key)
 	if !ok {
 		return nil
 	}
 	return load.(*TokenInfo)
+}
+
+func (m *MemoryTokenStore) Remove(key string) {
+	m.store.Delete(key)
 }
 
 type TokenInfo struct {
@@ -44,4 +49,8 @@ func buildTokenInfo(token *oauth2.Token) *TokenInfo {
 		AccessExpireAt:  expiry,
 		RefreshExpireAt: refreshExpireAt,
 	}
+}
+
+func buildTokenKey(info *UserAuthorization) string {
+	return info.Sub + "-" + info.AccessToken[len(info.AccessToken)-6:]
 }
