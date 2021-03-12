@@ -22,8 +22,7 @@ type Client struct {
 	OAuth2Config        *oauth2.Config
 	OidcConfig          *oidc.Config
 	Verifier            *oidc.IDTokenVerifier
-	// 只有开启自动刷新的时候才能够使用 dev 模式
-	// 开启后，不论令牌是否过期都会进行自动刷新
+	// 开启后，不论令牌是否过期都会进行自动刷新，此时 AutoRefresh 无效
 	Dev bool
 }
 

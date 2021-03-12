@@ -29,6 +29,8 @@ func (client *Client) initConfig() error {
 	}
 	client.OidcConfig = &oidc.Config{
 		ClientID: client.ClientId,
+		// 我们自己做过期校验
+		SkipExpiryCheck: true,
 	}
 	client.Verifier = provider.Verifier(client.OidcConfig)
 	return nil
@@ -152,32 +154,28 @@ func (client *Client) UserInfo(token string) (user *UserAuthorization, err error
 
 // 检查是否是因为过期造成的令牌失效，如果是且刷新令牌在有效期内，就自动刷新
 func (client *Client) checkExpiryAndRefresh(idToken *oidc.IDToken, token string, err error) (*oidc.IDToken, *oauth2.Token, error) {
-	// 验证并没有出错，不刷新
-	if !client.Dev && err == nil {
+	// 无法解析令牌，此时令牌不合法
+	if idToken == nil || err != nil {
 		return idToken, nil, err
-	}
-	// 并没有开启自动刷新，不处理
-	if !client.AutoRefresh {
-		return nil, nil, err
 	}
 	now := time.Now()
-	// 无法解析令牌，此时令牌不合法
-	if idToken == nil {
-		return nil, nil, err
-	}
-	// 不是 Dev 模式下再判断
 	// 如果失败的原因并不是令牌过期就不处理
-	if !client.Dev && idToken.Expiry.After(now) {
+	if idToken.Expiry.After(now) {
 		return idToken, nil, err
+	}
+	expiryError := fmt.Errorf("oidc: token is expired (Token Expiry: %v)", idToken.Expiry)
+	// 非开发模式或者并没有开启自动刷新，不处理
+	if !client.AutoRefresh || !client.Dev {
+		return idToken, nil, expiryError
 	}
 	// 从存储中加载出登录时的令牌
 	tokenInfo := client.TokenStore.Load(idToken.Subject)
 	if tokenInfo == nil || token != tokenInfo.AccessToken {
-		return idToken, nil, err
+		return idToken, nil, expiryError
 	}
 	// 如果刷新令牌也已经过期了就不处理
 	if tokenInfo.RefreshExpireAt.Before(now) {
-		return idToken, nil, err
+		return idToken, nil, expiryError
 	}
 	// 刷新令牌
 	newToken, err := client.RefreshToken(tokenInfo.RefreshToken)
