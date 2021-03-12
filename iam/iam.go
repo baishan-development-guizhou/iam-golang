@@ -160,12 +160,12 @@ func (client *Client) checkExpiryAndRefresh(idToken *oidc.IDToken, token string,
 	}
 	now := time.Now()
 	// 如果失败的原因并不是令牌过期就不处理
-	if idToken.Expiry.After(now) {
+	if idToken.Expiry.After(now) && !client.Dev {
 		return idToken, nil, err
 	}
 	expiryError := fmt.Errorf("oidc: token is expired (Token Expiry: %v)", idToken.Expiry)
 	// 非开发模式或者并没有开启自动刷新，不处理
-	if !client.AutoRefresh || !client.Dev {
+	if !client.AutoRefresh {
 		return idToken, nil, expiryError
 	}
 	// 从存储中加载出登录时的令牌
